@@ -1,21 +1,36 @@
+/*
+ * @Author: yantao1998 1265640301@qq.com
+ * @Date: 2023-12-25 15:52:16
+ * @LastEditors: yantao1998 1265640301@qq.com
+ * @LastEditTime: 2023-12-27 16:58:15
+ * @FilePath: \nginxLearning\nginx.c
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 #include <unistd.h>
 #include <stdio.h>
 #include <signal.h>
 
 void sig_usr(int signo)
 {
-    if(signo == SIGUSR1)
+    int status;
+    switch(signo)
     {
-        printf("收到了SIGUSR1信号！\n");
+        case SIGUSR1:
+        printf("收到了SIGUSR1信号,进程ID=%d\n",getpid());
+        break;
+        case SIGCHLD:
+        printf("收到了SIGCHLD信号,进程id=%d\n",getpid());
+        while(1)
+        {
+            pid_t pid = waitpid(-1,&status,WNOHANG);
+            if(pid <= 0)
+            {
+                break;
+            }
+        }
+        break;
     }
-    else if(signo == SIGUSR2)
-    {
-        printf("收到了SIGUSR2信号!\n");
-    }
-    else
-    {
-        printf("收到了未捕捉到的信号！\n");
-    }
+    
 }
 void sig_quit(int signo)
 {
@@ -91,5 +106,54 @@ int main()
             printf("sleep还剩%ds\n",mysl);
         }
     }
+    pid_t pid;
+    printf("进程开始执行!\n");
+    if(signal(SIGUSR1,sig_usr) == SIG_ERR)
+    {
+        printf("无法捕捉到SIGUSR1信号！\n");
+        exit(1);
+    }
+    if(signal(SIGCHLD,sig_usr) == SIG_ERR)
+    {
+        printf("无法捕捉到SIGUSR1信号！\n");
+    }
+    //创建一个子进程
+    pid = fork();
+    if(pid < 0)
+    {
+        printf("子进程创建失败,很遗憾!\n");
+        exit(1);
+    }
+    //父子进程同时执行代码
+    for(;;)
+    {
+        sleep(1);
+        printf("休息1s，进程id=%d\n",getpid());
+    }
+    //父子进程分流执行   
+    pid = fork();
+    if(pid < 0)
+    {
+        printf("子进程创建失败,很遗憾!\n");
+        exit(1);
+    }
+    if(pid == 0)
+    {
+        //子进程执行代码
+        while(1)
+        {
+            g_mygbltest++;
+            sleep(1);
+            printf("我是子进程，进程id=%d,g_mygbltest=%d\n",getpid(),g_mygbltest);
+        }
+    }else{
+        //父进程执行代码
+        while(1)
+        {
+            g_mygbltest++;
+            sleep(5);
+            printf("我是父进程，进程id=%d,g_mygbltest=%d\n",getpid(),g_mygbltest);
+        }
+    }     
     return 0;
 }
