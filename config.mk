@@ -8,6 +8,7 @@ export INCLUDE_PATH = $(BUILD_ROOT)/_include
 
 #定义我们要编译的目录
 BUILD_DIR = $(BUILD_ROOT)/signal/ \
+			$(BUILD_ROOT)/proc/	\
 			$(BUILD_ROOT)/logs/ \
 			$(BUILD_ROOT)/app/ 
 
