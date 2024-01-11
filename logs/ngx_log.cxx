@@ -151,8 +151,8 @@ void ngx_log_error_core(int level,  int err, const char *fmt, ...)
 
     sec = tv.tv_sec;             //秒
     localtime_r(&sec, &tm);      //把参数1的time_t转换为本地时间，保存到参数2中去，带_r的是线程安全的版本，尽量使用
-    tm.tm_mon++;                 //月份要调整下正常
-    tm.tm_year += 1900;          //年份要调整下才正常
+    tm.tm_mon++;                 //月份要调整下正常tm_mon 表示的是月份（0-11）
+    tm.tm_year += 1900;          //年份要调整下才正常,表示的是自 1900 年以来的年数
     
     u_char strcurrtime[40]={0};  //先组合出一个当前时间字符串，格式形如：2019/01/08 19:57:11
     ngx_slprintf(strcurrtime,  
