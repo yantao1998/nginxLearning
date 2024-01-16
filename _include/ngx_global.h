@@ -1,6 +1,7 @@
 #ifndef __NGX_GLOBAL_H__
 #define __NGX_GLOBAL_H__
 #include <sys/types.h>
+#include <signal.h>
 // 通用的宏定义
 //配置项的结构体单元
 typedef struct
@@ -22,8 +23,11 @@ extern char * gp_envmem;
 extern int g_environlen;
 extern size_t g_argvneedmem;
 extern int g_os_argc;
+extern int           g_daemonized;
 
 extern pid_t       ngx_pid;
 extern pid_t       ngx_parent;
 extern ngx_log_t   ngx_log;
+extern int           ngx_process;   
+extern sig_atomic_t  ngx_reap;   
 #endif
