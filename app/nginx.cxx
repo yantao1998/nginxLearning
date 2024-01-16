@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "ngx_func.h"  //头文件路径，已经使用gcc -I参数指定了
-#include "ngx_signal.h"
+#include "ngx_macro.h"
 #include "ngx_global.h"
 #include "ngx_c_conf.h"
 
@@ -17,11 +17,14 @@ int g_os_argc;
 char **g_os_argv;
 char* gp_envmem = NULL;
 int g_environlen = 0;
+int     g_daemonized=0;         //守护进程标记，标记是否启用了守护进程模式，0：未启用，1：启用了
 
 //和进程本身有关的全局量
 pid_t ngx_pid;               //当前进程的pid
 pid_t ngx_parent;               //当前进程的pid
-
+int     ngx_process;            //进程类型，比如master,worker进程等
+sig_atomic_t  ngx_reap;         //标记子进程状态变化[一般是子进程发来SIGCHLD信号表示退出],sig_atomic_t:系统定义的类型：访问或改变这些变量需要在计算机的一条指令内完成
+                                   //一般等价于int【通常情况下，int类型的变量通常是原子访问的，也可以认为 sig_atomic_t就是int类型的数据】
 int main(int argc, char *const *argv)
 {      
     int exitcode = 0;           //退出代码，先给0表示正常退出
@@ -36,7 +39,10 @@ int main(int argc, char *const *argv)
     g_os_argv = (char **)argv;  
     g_os_argc = argc;      
     printf("非常高兴，我们大家一起学习《linux C++通信架构实战》\n");    
-
+    //全局量有必要初始化的
+    ngx_log.fd = -1;                  //-1：表示日志文件尚未打开；因为后边ngx_log_stderr要用所以这里先给-1
+    ngx_process = NGX_PROCESS_MASTER; //先标记本进程是master进程
+    ngx_reap = 0;                     //标记子进程没有发生变化
 
     //(2)初始化失败，就要直接退出的
     //配置文件必须最先要，后边初始化啥的都用，所以先把配置读出来，供后续使用 
@@ -59,7 +65,27 @@ int main(int argc, char *const *argv)
     ngx_init_setproctitle();    //把环境变量搬家
     printf("argc=%d,argv[0]=%s\n",argc,argv[0]);
     //要保证所有命令行参数从下面这行代码开始都不再使用，才能调用ngx_setproctitle函数，因为调用后，命令行参数的内容可能会被覆盖掉
-
+    //(6)创建守护进程
+    if(p_config->GetIntDefault("Daemon",0) == 1) //读配置文件，拿到配置文件中是否按守护进程方式启动的选项
+    {
+        //1：按守护进程方式运行
+        int cdaemonresult = ngx_daemon();
+        if(cdaemonresult == -1) //fork()失败
+        {
+            exitcode = 1;    //标记失败
+            goto lblexit;
+        }
+        if(cdaemonresult == 1)
+        {
+            //这是原始的父进程
+            freeresource();   //只有进程退出了才goto到 lblexit，用于提醒用户进程退出了
+                              //而我现在这个情况属于正常fork()守护进程后的正常退出，不应该跑到lblexit()去执行，因为那里有一条打印语句标记整个进程的退出，这里不该显示该条打印语句
+            exitcode = 0;
+            return exitcode;  //整个进程直接在这里退出
+        }
+        //走到这里，成功创建了守护进程并且这里已经是fork()出来的进程，现在这个进程做了master进程
+        g_daemonized = 1;    //守护进程标记，标记是否启用了守护进程模式，0：未启用，1：启用了
+    }
     //(5)开始正式的主工作流程，主流程一致在下边这个函数里循环，暂时不会走下来，资源释放啥的日后再慢慢完善和考虑
     ngx_master_process_cycle(); //不管父进程还是子进程，正常工作期间都在这个函数里循环；
     // ngx_log_stderr(0, "invalid option: \"%s\"", argv[0]);  //nginx: invalid option: "./nginx"
